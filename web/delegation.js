@@ -6,7 +6,21 @@ const toWei = (eth) => BigInt(Math.round(Number(eth) * 1e6)) * 10n ** 12n;
 const fromWei = (wei) => `${(Number(wei) / 1e18).toFixed(4)} ETH`;
 
 let account = null;
+let provider = null;
 let onChange = () => {};
+
+// EIP-6963: discover injected wallets and prefer the Uniswap Wallet extension.
+const UNISWAP_RDNS = 'org.uniswap.app';
+const discovered = new Map();
+window.addEventListener('eip6963:announceProvider', (e) => discovered.set(e.detail.info.rdns, e.detail));
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+function pickProvider() {
+  const uniswap = discovered.get(UNISWAP_RDNS);
+  if (uniswap) return { provider: uniswap.provider, name: uniswap.info.name };
+  if (window.ethereum?.isUniswapWallet) return { provider: window.ethereum, name: 'Uniswap Wallet' };
+  throw new Error('Uniswap Wallet not found. Install the Uniswap Wallet extension (wallet.uniswap.org) and reload.');
+}
 
 async function api(path, body) {
   const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
@@ -16,13 +30,14 @@ async function api(path, body) {
 }
 
 async function connect() {
-  if (!window.ethereum) throw new Error('No wallet found. Install MetaMask or another browser wallet.');
-  [account] = await window.ethereum.request({ method: 'eth_requestAccounts' });
-  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+  const picked = pickProvider();
+  provider = picked.provider;
+  [account] = await provider.request({ method: 'eth_requestAccounts' });
+  const chainId = await provider.request({ method: 'eth_chainId' });
   if (chainId !== SEPOLIA) {
-    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: SEPOLIA }] });
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: SEPOLIA }] });
   }
-  $('d-account').textContent = `Connected ${short(account)}`;
+  $('d-account').textContent = `Connected ${picked.name} ${short(account)}`;
   $('d-connect').hidden = true;
   $('d-sign').hidden = false;
 }
@@ -50,7 +65,7 @@ async function signAndDelegate() {
     primaryType: 'Mandate',
     message: mandate,
   };
-  const signature = await window.ethereum.request({
+  const signature = await provider.request({
     method: 'eth_signTypedData_v4',
     params: [account, JSON.stringify(typedData)],
   });
@@ -61,7 +76,7 @@ async function revoke(message, owner) {
   if (!account) await connect();
   if (account.toLowerCase() !== owner.toLowerCase()) throw new Error(`Switch your wallet to the owner ${short(owner)} to revoke.`);
   const hex = `0x${[...new TextEncoder().encode(message)].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
-  const signature = await window.ethereum.request({ method: 'personal_sign', params: [hex, account] });
+  const signature = await provider.request({ method: 'personal_sign', params: [hex, account] });
   await api('/api/delegation/revoke', { signature });
 }
 
