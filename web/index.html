@@ -18,6 +18,36 @@
   <div id="banner" hidden></div>
 
   <main>
+    <section class="card wide" id="delegation">
+      <div class="head">
+        <h2>Delegation</h2>
+        <span id="d-state" class="status s-blocked">not delegated</span>
+      </div>
+      <div id="d-none">
+        <p class="note">The agent can't trade until the treasury owner signs a mandate (EIP-712, no gas) granting it limited authority. You can revoke it at any time.</p>
+        <div class="row wrap">
+          <label>Max per trade (ETH)<input id="d-max" type="number" step="any" min="0" value="0.02" /></label>
+          <label>Daily limit (ETH)<input id="d-daily" type="number" step="any" min="0" value="0.03" /></label>
+          <label>Valid for (hours)<input id="d-hours" type="number" min="1" value="24" /></label>
+        </div>
+        <div class="actions">
+          <button id="d-connect">Connect wallet</button>
+          <button id="d-sign" hidden>Sign &amp; delegate</button>
+          <span id="d-account" class="mono muted"></span>
+        </div>
+      </div>
+      <div id="d-active" hidden>
+        <ul class="kv">
+          <li><span>Owner</span><strong id="d-owner" class="mono"></strong></li>
+          <li><span>Agent</span><strong id="d-agent" class="mono"></strong></li>
+          <li><span>Max per trade</span><strong id="d-amax"></strong></li>
+          <li><span>Daily limit</span><strong id="d-adaily"></strong></li>
+          <li><span>Expires</span><strong id="d-exp"></strong></li>
+        </ul>
+        <div class="actions"><button id="d-revoke" class="ghost">Revoke delegation</button></div>
+      </div>
+    </section>
+
     <section class="card" id="treasury">
       <h2>Treasury</h2>
       <div class="stats">
