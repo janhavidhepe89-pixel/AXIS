@@ -26,11 +26,22 @@ export type Decision =
   | { kind: 'needs_human'; reason: string }
   | { kind: 'blocked'; reason: string };
 
-export function decide(valueEth: bigint, spentLast24h: bigint): Decision {
-  if (valueEth > policy.hardLimit) {
-    return { kind: 'blocked', reason: 'exceeds hard per-trade limit' };
+/** Limits granted by the owner's signed delegation mandate (always within the agent's own caps). */
+export interface MandateLimits {
+  maxTradeWei: string;
+  dailyLimitWei: string;
+}
+
+export function decide(valueEth: bigint, spentLast24h: bigint, mandate: MandateLimits | null): Decision {
+  if (!mandate) {
+    return { kind: 'blocked', reason: 'no active delegation from the treasury owner' };
   }
-  if (spentLast24h + valueEth > policy.dailyLimit) {
+  const hardLimit = BigInt(mandate.maxTradeWei) < policy.hardLimit ? BigInt(mandate.maxTradeWei) : policy.hardLimit;
+  const dailyLimit = BigInt(mandate.dailyLimitWei) < policy.dailyLimit ? BigInt(mandate.dailyLimitWei) : policy.dailyLimit;
+  if (valueEth > hardLimit) {
+    return { kind: 'blocked', reason: 'exceeds per-trade limit of the delegation' };
+  }
+  if (spentLast24h + valueEth > dailyLimit) {
     return { kind: 'blocked', reason: 'would exceed 24h spending limit' };
   }
   if (valueEth <= policy.autoLimit) {
