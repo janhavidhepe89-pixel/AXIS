@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+*.log
+# stale local build cache, not part of this project
+/alma/
