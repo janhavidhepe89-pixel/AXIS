@@ -68,7 +68,7 @@ function createCharts() {
         { label: 'Treasury value', data: [], borderColor: accent, backgroundColor: `${accent}22`, fill: true, borderWidth: 2, pointRadius: 0, tension: 0.2 },
       ],
     },
-    options: baseOptions('ETH', (v) => Number(v).toFixed(4)),
+    options: baseOptions('ETH', (v) => Number(v).toFixed(5)),
   });
 }
 
