@@ -129,3 +129,50 @@ export function expireStale() {
     }
   }
 }
+
+/** Execute a proposal on Uniswap. Only reachable via auto-policy or a validated human approval. */
+export async function execute(id: string): Promise<Proposal> {
+  const p = getProposal(id);
+  if (!p) throw new Error('unknown proposal');
+  if (p.status !== 'pending_approval') throw new Error(`proposal is ${p.status}`);
+  if (p.decision === 'needs_human' && !p.approvedBy) throw new Error('human approval required');
+  p.status = 'executing';
+  const tokenIn: Token = tokens[p.tokenIn];
+  const tokenOut: Token = tokens[p.tokenOut];
+  try {
+    const q = await getQuote(tokenIn, tokenOut, BigInt(p.amountIn));
+    const res = await executeSwap(tokenIn, BigInt(p.amountIn), q);
+    if (res.approvalTx) p.txs.push({ label: 'Permit2 approval', hash: res.approvalTx });
+    p.txs.push({ label: `Swap via ${q.quote.routeString?.slice(0, 4) ?? q.routing}`, hash: res.swapTx });
+    if (res.status !== 'success') throw new Error(`swap reverted: ${explorerTx(res.swapTx)}`);
+    p.status = 'executed';
+    log('trade', `Executed ${describe(p)}: ${explorerTx(res.swapTx)}`, p.id);
+  } catch (err) {
+    p.status = 'failed';
+    p.error = (err as Error).message;
+    log('error', `Execution failed for ${describe(p)}: ${p.error}`, p.id);
+  }
+  return p;
+}
+
+/** Called only after the backend has validated a fresh World ID authentication. */
+export async function approveAndExecute(id: string, subject: string): Promise<Proposal> {
+  const p = getProposal(id);
+  if (!p) throw new Error('unknown proposal');
+  expireStale();
+  if (p.status !== 'pending_approval') throw new Error(`proposal is ${p.status}, cannot approve`);
+  p.approvedBy = subject;
+  p.approvedAt = Date.now();
+  log('approval', `Verified human approved ${describe(p)}`, p.id);
+  return execute(id);
+}
+
+export function reject(id: string, reason: string): Proposal {
+  const p = getProposal(id);
+  if (!p) throw new Error('unknown proposal');
+  if (p.status !== 'pending_approval') throw new Error(`proposal is ${p.status}`);
+  p.status = 'rejected';
+  p.error = reason;
+  log('denied', `Trade not executed (${reason}): ${describe(p)}`, p.id);
+  return p;
+}
