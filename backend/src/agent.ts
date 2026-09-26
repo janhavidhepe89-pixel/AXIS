@@ -8,6 +8,7 @@ import { explorerTx, getBalances } from './chain.js';
 import { executeSwap, getQuote } from './uniswap.js';
 import { decide, policy } from './policy.js';
 import { record } from './history.js';
+import { getMandate } from './delegation.js';
 import {
   createProposal,
   getProposal,
@@ -70,7 +71,7 @@ export async function propose(
   valueEth: bigint,
   rationale: string,
 ): Promise<Proposal> {
-  const decision = decide(valueEth, spentLast24h());
+  const decision = decide(valueEth, spentLast24h(), getMandate());
   const p = createProposal({
     tokenIn,
     tokenOut: tokenIn === 'ETH' ? 'USDC' : 'ETH',
@@ -101,6 +102,10 @@ export async function requestTrade(tokenIn: 'ETH' | 'USDC', amount: string, rati
 export async function tick(): Promise<{ snap: Snapshot; proposal?: Proposal }> {
   expireStale();
   const { snap, tradeableEth, usdcInEth, total, price } = await snapshot();
+  if (!getMandate()) {
+    log('info', 'Agent idle: waiting for the treasury owner to delegate');
+    return { snap };
+  }
   if (listProposals().some((p) => p.status === 'pending_approval' || p.status === 'executing')) {
     return { snap };
   }
@@ -138,6 +143,7 @@ export async function execute(id: string): Promise<Proposal> {
   if (!p) throw new Error('unknown proposal');
   if (p.status !== 'pending_approval') throw new Error(`proposal is ${p.status}`);
   if (p.decision === 'needs_human' && !p.approvedBy) throw new Error('human approval required');
+  if (!getMandate()) throw new Error('delegation revoked or expired');
   p.status = 'executing';
   p.ethPctBefore = (await snapshot()).snap.ethPct;
   const tokenIn: Token = tokens[p.tokenIn];
