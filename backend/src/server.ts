@@ -6,6 +6,7 @@ import { agentAccount } from './chain.js';
 import { policy } from './policy.js';
 import { listActivity, listProposals, log } from './store.js';
 import { listHistory } from './history.js';
+import { delegate, getMandate, mandateDomain, mandateTypes, nextNonce, revoke, revokeMessage } from './delegation.js';
 import { approveAndExecute, expireStale, reject, requestTrade, snapshot, tick } from './agent.js';
 import { beginApproval, completeApproval, redirectUri } from './worldid.js';
 
@@ -69,6 +70,44 @@ app.post('/api/proposals', async (req, res) => {
 app.post('/api/proposals/:id/reject', (req, res) => {
   try {
     res.json(reject(req.params.id, 'rejected by user'));
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Delegation: owner signs an EIP-712 mandate granting the agent limited authority
+// ---------------------------------------------------------------------------
+
+app.get('/api/delegation', (_req, res) => {
+  const active = getMandate();
+  res.json({
+    active,
+    revokeMessage: active ? revokeMessage(active.owner, active.nonce) : null,
+    template: {
+      domain: mandateDomain,
+      types: mandateTypes,
+      agent: agentAccount.address,
+      nonce: String(nextNonce()),
+      caps: { maxTradeWei: policy.hardLimit.toString(), dailyLimitWei: policy.dailyLimit.toString() },
+    },
+  });
+});
+
+app.post('/api/delegate', async (req, res) => {
+  const { mandate, signature } = req.body ?? {};
+  if (!mandate || !signature) return fail(res, new Error('mandate and signature are required'));
+  try {
+    res.json({ ok: true, active: await delegate(mandate, signature) });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+app.post('/api/delegation/revoke', async (req, res) => {
+  try {
+    await revoke(req.body?.signature);
+    res.json({ ok: true });
   } catch (err) {
     fail(res, err);
   }
