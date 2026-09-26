@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { agentAccount } from './chain.js';
 import { policy } from './policy.js';
 import { listActivity, listProposals, log } from './store.js';
+import { listHistory } from './history.js';
 import { approveAndExecute, expireStale, reject, requestTrade, snapshot, tick } from './agent.js';
 import { beginApproval, completeApproval, redirectUri } from './worldid.js';
 
@@ -42,6 +43,8 @@ app.get('/api/proposals', (_req, res) => {
 });
 
 app.get('/api/activity', (_req, res) => res.json(listActivity()));
+
+app.get('/api/history', (_req, res) => res.json(listHistory()));
 
 // Run one agent cycle now (the loop also runs on an interval).
 app.post('/api/agent/tick', async (_req, res) => {
