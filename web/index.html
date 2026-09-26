@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AXIS Treasury Agent</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">AXIS <span>treasury agent</span></div>
+    <div class="meta">
+      <span id="agent-addr" class="mono">…</span>
+      <span class="pill">Sepolia</span>
+    </div>
+  </header>
+
+  <div id="banner" hidden></div>
+
+  <main>
+    <section class="card" id="treasury">
+      <h2>Treasury</h2>
+      <div class="stats">
+        <div><label>ETH</label><strong id="eth">–</strong></div>
+        <div><label>USDC</label><strong id="usdc">–</strong></div>
+        <div><label>Price (Uniswap quote)</label><strong id="price">–</strong></div>
+      </div>
+      <div class="alloc">
+        <div class="bar"><div id="alloc-eth"></div><i id="alloc-target"></i></div>
+        <div class="legend"><span id="alloc-label">–</span><span id="target-label">–</span></div>
+      </div>
+      <div class="actions">
+        <button id="tick">Run agent cycle</button>
+      </div>
+    </section>
+
+    <section class="card" id="policy">
+      <h2>Policy</h2>
+      <ul>
+        <li><span>Autonomous up to</span><strong id="p-auto">–</strong></li>
+        <li><span>Needs fresh World ID above</span><strong id="p-human">–</strong></li>
+        <li><span>Hard block above</span><strong id="p-hard">–</strong></li>
+        <li><span>24h spending limit</span><strong id="p-daily">–</strong></li>
+        <li><span>Approval window</span><strong id="p-ttl">–</strong></li>
+      </ul>
+      <form id="request">
+        <h3>Ask the agent for a trade</h3>
+        <div class="row">
+          <input id="req-amount" type="number" step="any" min="0" placeholder="Amount" required />
+          <select id="req-token"><option>ETH</option><option>USDC</option></select>
+          <button type="submit">Propose</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card wide">
+      <h2>Proposals</h2>
+      <div id="proposals" class="list"><p class="empty">No proposals yet.</p></div>
+    </section>
+
+    <section class="card wide">
+      <h2>Activity</h2>
+      <ol id="activity" class="feed"></ol>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
