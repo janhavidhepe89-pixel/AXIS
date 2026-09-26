@@ -1,4 +1,5 @@
 import { updateCharts } from './charts.js';
+import { initDelegation, loadDelegation } from './delegation.js';
 
 const $ = (id) => document.getElementById(id);
 const fmtEth = (wei) => `${(Number(wei) / 1e18).toFixed(4)} ETH`;
@@ -119,7 +120,7 @@ async function loadActivity() {
 }
 
 async function refresh() {
-  await Promise.allSettled([loadStatus(), loadProposals(), loadActivity()]);
+  await Promise.allSettled([loadStatus(), loadProposals(), loadActivity(), loadDelegation()]);
   await loadHistory().catch(() => {});
 }
 
@@ -184,5 +185,9 @@ if (q.has('result')) {
   history.replaceState(null, '', '/');
 }
 
+initDelegation((kind, msg) => {
+  showBanner(kind, msg);
+  refresh();
+});
 refresh();
 setInterval(refresh, 10000);
