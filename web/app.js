@@ -1,3 +1,5 @@
+import { updateCharts } from './charts.js';
+
 const $ = (id) => document.getElementById(id);
 const fmtEth = (wei) => `${(Number(wei) / 1e18).toFixed(4)} ETH`;
 const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -21,8 +23,12 @@ function showBanner(kind, text) {
   b.hidden = false;
 }
 
+let status = null;
+let proposals = [];
+
 async function loadStatus() {
   const s = await api('/api/status');
+  status = s;
   const t = s.treasury;
   $('agent-addr').textContent = `${s.agent.slice(0, 6)}…${s.agent.slice(-4)}`;
   $('eth').textContent = Number(t.eth).toFixed(4);
@@ -65,8 +71,43 @@ function renderProposal(p) {
     </div>`;
 }
 
+function renderRebalances(list) {
+  const done = list.filter((p) => p.status === 'executed');
+  $('k-count').textContent = done.length;
+  $('k-human').textContent = done.filter((p) => p.approvedBy).length;
+  $('k-denied').textContent = list.filter((p) => ['blocked', 'rejected', 'expired'].includes(p.status)).length;
+  if (!done.length) return;
+  $('rebalances').tBodies[0].innerHTML = done
+    .map((p) => {
+      const swap = p.txs[p.txs.length - 1];
+      const allocation =
+        p.ethPctBefore != null && p.ethPctAfter != null
+          ? `${p.ethPctBefore.toFixed(1)}% → ${p.ethPctAfter.toFixed(1)}% <span class="delta">ETH</span>`
+          : '–';
+      const by = p.approvedBy
+        ? '<span class="tag human">World ID human</span>'
+        : '<span class="tag auto">Agent (auto)</span>';
+      return `<tr>
+        <td>${fmtTime(p.executedAt || p.createdAt)}</td>
+        <td>${esc(amountLabel(p))}</td>
+        <td>${fmtEth(p.valueEth)}</td>
+        <td>${allocation}</td>
+        <td>${by}</td>
+        <td>${swap ? `<a href="${tx(swap.hash)}" target="_blank" rel="noopener">${swap.hash.slice(0, 10)}… ↗</a>` : '–'}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+async function loadHistory() {
+  const history = await api('/api/history');
+  if (status) updateCharts(history, proposals, status.policy);
+}
+
 async function loadProposals() {
   const list = await api('/api/proposals');
+  proposals = list;
+  renderRebalances(list);
   $('proposals').innerHTML = list.length ? list.map(renderProposal).join('') : '<p class="empty">No proposals yet.</p>';
 }
 
@@ -79,6 +120,7 @@ async function loadActivity() {
 
 async function refresh() {
   await Promise.allSettled([loadStatus(), loadProposals(), loadActivity()]);
+  await loadHistory().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -143,4 +185,4 @@ if (q.has('result')) {
 }
 
 refresh();
-setInterval(refresh, 5000);
+setInterval(refresh, 10000);
