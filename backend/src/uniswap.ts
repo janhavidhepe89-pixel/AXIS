@@ -49,3 +49,58 @@ export async function getQuote(tokenIn: Token, tokenOut: Token, amountIn: bigint
     slippageTolerance: slippage,
   });
 }
+
+/** ERC-20 inputs go through Permit2: make sure Permit2 can pull the agent's tokens. */
+async function ensurePermit2Allowance(token: Token, amount: bigint): Promise<Hex | null> {
+  if (token.address === '0x0000000000000000000000000000000000000000') return null;
+  const allowance = await publicClient.readContract({
+    address: token.address,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: [agentAccount.address, PERMIT2],
+  });
+  if (allowance >= amount) return null;
+  const hash = await walletClient.writeContract({
+    address: token.address,
+    abi: erc20Abi,
+    functionName: 'approve',
+    args: [PERMIT2, maxUint256],
+  });
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+async function buildSwapTx(q: QuoteResult): Promise<TxRequest> {
+  const body: Record<string, unknown> = { quote: q.quote };
+  if (q.permitData) {
+    const { domain, types, values } = q.permitData;
+    body.signature = await agentAccount.signTypedData({
+      domain,
+      types,
+      primaryType: 'PermitSingle',
+      message: values,
+    });
+    body.permitData = q.permitData;
+  }
+  const res = await post<{ swap: TxRequest }>('/swap', body);
+  return res.swap;
+}
+
+export interface SwapResult {
+  approvalTx: Hex | null;
+  swapTx: Hex;
+  status: 'success' | 'reverted';
+}
+
+/** Execute a quote from the agent wallet and wait for the receipt. */
+export async function executeSwap(tokenIn: Token, amountIn: bigint, q: QuoteResult): Promise<SwapResult> {
+  const approvalTx = await ensurePermit2Allowance(tokenIn, amountIn);
+  const tx = await buildSwapTx(q);
+  const swapTx = await walletClient.sendTransaction({
+    to: tx.to,
+    data: tx.data,
+    value: tx.value ? BigInt(tx.value) : 0n,
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: swapTx });
+  return { approvalTx, swapTx, status: receipt.status };
+}
