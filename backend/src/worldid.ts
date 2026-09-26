@@ -54,3 +54,62 @@ export function beginApproval(proposalId: string): string {
   }).toString();
   return url.toString();
 }
+
+export type ApprovalResult =
+  | { ok: true; proposalId: string; subject: string; claims: JWTPayload }
+  | { ok: false; proposalId?: string; reason: string };
+
+/** Handle the redirect back from World ID. Never trusts anything the browser says without checks. */
+export async function completeApproval(query: Record<string, unknown>): Promise<ApprovalResult> {
+  const state = typeof query.state === 'string' ? query.state : '';
+  const auth = pending.get(state);
+  pending.delete(state); // single use
+  if (!auth) return { ok: false, reason: 'unknown or already-used state' };
+  const { proposalId } = auth;
+
+  if (typeof query.error === 'string') {
+    const desc = typeof query.error_description === 'string' ? `: ${query.error_description}` : '';
+    return { ok: false, proposalId, reason: `World ID returned ${query.error}${desc}` };
+  }
+  if (Date.now() - auth.createdAt > policy.approvalTtlMs) {
+    return { ok: false, proposalId, reason: 'verification request expired' };
+  }
+  if (typeof query.code !== 'string') return { ok: false, proposalId, reason: 'missing code' };
+
+  // Exchange the code server-side (client_secret_basic + PKCE verifier).
+  const basic = Buffer.from(
+    `${encodeURIComponent(config.world.clientId)}:${encodeURIComponent(config.world.clientSecret)}`,
+  ).toString('base64');
+  const res = await fetch(endpoints.token, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', authorization: `Basic ${basic}` },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: query.code,
+      redirect_uri: redirectUri,
+      code_verifier: auth.codeVerifier,
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || typeof body.id_token !== 'string') {
+    return { ok: false, proposalId, reason: `token exchange failed (${res.status} ${body.error ?? ''})` };
+  }
+
+  try {
+    const { payload } = await jwtVerify(body.id_token, jwks, {
+      issuer,
+      audience: config.world.clientId,
+      algorithms: ['RS256'],
+    });
+    if (payload.nonce !== auth.nonce) return { ok: false, proposalId, reason: 'nonce mismatch' };
+    const authTime = typeof payload.auth_time === 'number' ? payload.auth_time : 0;
+    const age = Math.floor(Date.now() / 1000) - authTime;
+    if (age > policy.maxAuthAgeSec) {
+      return { ok: false, proposalId, reason: `authentication not fresh (${age}s old)` };
+    }
+    if (!payload.sub) return { ok: false, proposalId, reason: 'missing subject' };
+    return { ok: true, proposalId, subject: payload.sub, claims: payload };
+  } catch (err) {
+    return { ok: false, proposalId, reason: `invalid ID token: ${(err as Error).message}` };
+  }
+}
