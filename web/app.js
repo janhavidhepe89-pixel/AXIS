@@ -80,3 +80,67 @@ async function loadActivity() {
 async function refresh() {
   await Promise.allSettled([loadStatus(), loadProposals(), loadActivity()]);
 }
+
+// ---------------------------------------------------------------------------
+// Interactions
+// ---------------------------------------------------------------------------
+
+$('tick').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try {
+    const r = await api('/api/agent/tick', { method: 'POST' });
+    if (!r.proposal) showBanner('ok', 'Agent cycle done: allocation within target, no trade needed.');
+  } catch (err) {
+    showBanner('bad', err.message);
+  } finally {
+    e.target.disabled = false;
+    refresh();
+  }
+});
+
+$('request').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  btn.disabled = true;
+  try {
+    const p = await api('/api/proposals', {
+      method: 'POST',
+      body: JSON.stringify({ tokenIn: $('req-token').value, amount: $('req-amount').value }),
+    });
+    const msg = {
+      auto: 'Within the autonomous limit, so the agent executed it.',
+      needs_human: 'Above the autonomous limit: approve it with World ID to execute.',
+      blocked: `Blocked by policy: ${p.decisionReason}.`,
+    }[p.decision];
+    showBanner(p.decision === 'blocked' ? 'bad' : 'ok', msg);
+  } catch (err) {
+    showBanner('bad', err.message);
+  } finally {
+    btn.disabled = false;
+    refresh();
+  }
+});
+
+$('proposals').addEventListener('click', async (e) => {
+  const id = e.target.dataset?.reject;
+  if (!id) return;
+  try {
+    await api(`/api/proposals/${id}/reject`, { method: 'POST' });
+  } catch (err) {
+    showBanner('bad', err.message);
+  }
+  refresh();
+});
+
+// Result of a World ID round trip, passed back by /auth/callback.
+const q = new URLSearchParams(location.search);
+if (q.has('result')) {
+  const r = q.get('result');
+  if (r === 'executed') showBanner('ok', 'Verified human approval accepted. The agent executed the trade on Uniswap.');
+  else if (r === 'denied') showBanner('bad', `Approval denied, trade not executed: ${q.get('reason')}`);
+  else showBanner('bad', `Trade ${r}${q.get('reason') ? `: ${q.get('reason')}` : ''}`);
+  history.replaceState(null, '', '/');
+}
+
+refresh();
+setInterval(refresh, 5000);
