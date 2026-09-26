@@ -54,6 +54,31 @@
     </section>
 
     <section class="card wide">
+      <div class="head">
+        <h2>Performance</h2>
+        <div class="kpis">
+          <span>Rebalances <strong id="k-count">0</strong></span>
+          <span>Human-approved <strong id="k-human">0</strong></span>
+          <span>Blocked / denied <strong id="k-denied">0</strong></span>
+        </div>
+      </div>
+      <div class="charts">
+        <figure><figcaption>ETH allocation vs target band</figcaption><div class="chart"><canvas id="chart-alloc"></canvas></div></figure>
+        <figure><figcaption>Treasury value (ETH-equivalent)</figcaption><div class="chart"><canvas id="chart-value"></canvas></div></figure>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Rebalance history</h2>
+      <div class="table-wrap">
+        <table id="rebalances">
+          <thead><tr><th>Time</th><th>Trade</th><th>Value</th><th>Allocation</th><th>Authorized by</th><th>Tx</th></tr></thead>
+          <tbody><tr><td colspan="6" class="empty">No rebalances executed yet.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card wide">
       <h2>Proposals</h2>
       <div id="proposals" class="list"><p class="empty">No proposals yet.</p></div>
     </section>
@@ -64,6 +89,7 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="/app.js" type="module"></script>
 </body>
 </html>
