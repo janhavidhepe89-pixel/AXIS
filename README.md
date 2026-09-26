@@ -10,6 +10,22 @@ AI agents that hold money have an uncomfortable choice: either a human signs eve
 | 0.002 to 0.02 ETH | Agent proposes. It executes **only** after a *fresh* World ID verification by the treasury's owner, validated on the backend |
 | > 0.02 ETH, or over the 24h limit | Blocked. Nobody can approve it |
 
+## Delegation with Uniswap Wallet
+
+The agent does nothing until the treasury owner delegates to it. The owner connects **Uniswap Wallet** (the dashboard finds it via EIP-6963 and prefers it over other wallets) and signs an EIP-712 `Mandate { owner, agent, maxTradeWei, dailyLimitWei, expiry, nonce }`. There's no gas and no transaction. The backend verifies the signature on-chain, so it works both for a plain EOA and for a Uniswap smart wallet (Calibur via EIP-7702, ERC-1271). From then on, the policy enforces the mandate's limits. The owner can revoke at any time by signing with the same wallet, and the agent pauses immediately.
+
+- Mandate types, verification and revocation: [`backend/src/delegation.ts`](backend/src/delegation.ts)
+- Policy refuses everything without an active mandate: [`backend/src/policy.ts`](backend/src/policy.ts)
+- Uniswap Wallet connection and signing: [`web/delegation.js`](web/delegation.js)
+- API test (forged mandate, stranger revoke, owner revoke): `pnpm test:delegation`
+
+## Dashboard
+
+- Treasury balances, and the allocation vs target priced from a live Uniswap quote
+- **Charts:** ETH allocation over time with the target band and rebalance markers, plus treasury value over time
+- **Rebalance history:** each executed trade with allocation before → after, whether the agent ran it on its own or a World ID-verified human approved it, and the Etherscan link
+- Proposals waiting for approval, and a live activity feed
+
 ## How it works
 
 ```
@@ -100,10 +116,11 @@ pnpm smoke:swap 0.001       # optional: one live ETH->USDC swap
 
 ### Demo script
 
-1. Open the dashboard. The treasury is off target, so click **Run agent cycle**. The agent proposes a rebalance above the autonomous limit, and it waits for approval.
-2. Click **Approve with World ID**, complete verification, and you land back on the dashboard with the executed trade and its Etherscan link.
-3. Unsuccessful path: create another large proposal and click **Approve with World ID**, then cancel. Or click **Reject**, or wait out the window. The proposal is rejected or expired, and no transaction is sent.
-4. Ask for `0.001 ETH`: it runs on its own. Ask for `0.05 ETH`: it's blocked by the hard limit.
+1. Open the dashboard in Chrome with the Uniswap Wallet extension. Click **Connect Uniswap Wallet**, then **Sign & delegate**. The agent is now active within your limits.
+2. The treasury is off target, so click **Run agent cycle**. The agent proposes a rebalance above the autonomous limit, and it waits for approval.
+3. Click **Approve with World ID**, complete verification, and you land back on the dashboard with the executed trade and its Etherscan link.
+4. Unsuccessful path: create another large proposal and click **Approve with World ID**, then cancel. Or click **Reject**, or wait out the window. The proposal is rejected or expired, and no transaction is sent.
+5. Ask for `0.001 ETH`: it runs on its own. Ask for `0.05 ETH`: it's blocked by the hard limit.
 
 ## Team
 
@@ -112,3 +129,4 @@ pnpm smoke:swap 0.001       # optional: one live ETH->USDC swap
 ## World ID integration debrief
 
 _(to fill in after the final run: time to first success, friction, missing docs, top improvement)_
+6. Click **Revoke delegation** and sign. Any further trade is blocked with "no active delegation".
