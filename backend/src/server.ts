@@ -95,10 +95,12 @@ app.get('/api/delegation', (_req, res) => {
 });
 
 app.post('/api/delegate', async (req, res) => {
-  const { mandate, signature } = req.body ?? {};
+  const { mandate, signature, chainId } = req.body ?? {};
   if (!mandate || !signature) return fail(res, new Error('mandate and signature are required'));
+  const signedChain = chainId === undefined ? undefined : Number(chainId);
+  if (signedChain !== undefined && !Number.isSafeInteger(signedChain)) return fail(res, new Error('invalid chainId'));
   try {
-    res.json({ ok: true, active: await delegate(mandate, signature) });
+    res.json({ ok: true, active: await delegate(mandate, signature, signedChain) });
   } catch (err) {
     fail(res, err);
   }

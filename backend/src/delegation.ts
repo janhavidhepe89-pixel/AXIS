@@ -54,7 +54,7 @@ export function revokeMessage(owner: Address, n: string) {
 }
 
 /** Verify a signed mandate and make it the active delegation. */
-export async function delegate(m: Mandate, signature: Hex): Promise<ActiveMandate> {
+export async function delegate(m: Mandate, signature: Hex, chainId: number = CHAIN_ID): Promise<ActiveMandate> {
   const mandate: Mandate = {
     owner: getAddress(m.owner),
     agent: getAddress(m.agent),
@@ -73,7 +73,8 @@ export async function delegate(m: Mandate, signature: Hex): Promise<ActiveMandat
   // Works for plain EOAs and for smart accounts (e.g. Uniswap Wallet's Calibur 7702 delegation, ERC-1271).
   const valid = await publicClient.verifyTypedData({
     address: mandate.owner,
-    domain: mandateDomain,
+    // The wallet signs for the chain it is set to; replay is prevented by agent + single-use nonce.
+    domain: { ...mandateDomain, chainId },
     types: mandateTypes,
     primaryType: 'Mandate',
     message: {
