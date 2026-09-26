@@ -3,9 +3,9 @@
  * within limits until an expiry. The agent does nothing without an active mandate, and the owner can
  * revoke it at any time with a signature from the same wallet.
  */
-import { getAddress, verifyMessage, verifyTypedData, type Address, type Hex } from 'viem';
+import { getAddress, type Address, type Hex } from 'viem';
 import { CHAIN_ID } from './config.js';
-import { agentAccount } from './chain.js';
+import { agentAccount, publicClient } from './chain.js';
 import { policy } from './policy.js';
 import { log } from './store.js';
 
@@ -70,7 +70,8 @@ export async function delegate(m: Mandate, signature: Hex): Promise<ActiveMandat
   if (BigInt(mandate.dailyLimitWei) > policy.dailyLimit) throw new Error('daily limit exceeds the agent cap');
   if (active && active.owner !== mandate.owner) throw new Error('treasury already delegated by another owner');
 
-  const valid = await verifyTypedData({
+  // Works for plain EOAs and for smart accounts (e.g. Uniswap Wallet's Calibur 7702 delegation, ERC-1271).
+  const valid = await publicClient.verifyTypedData({
     address: mandate.owner,
     domain: mandateDomain,
     types: mandateTypes,
@@ -97,7 +98,7 @@ export async function delegate(m: Mandate, signature: Hex): Promise<ActiveMandat
 export async function revoke(signature: Hex): Promise<void> {
   const m = getMandate();
   if (!m) throw new Error('no active delegation');
-  const valid = await verifyMessage({ address: m.owner, message: revokeMessage(m.owner, m.nonce), signature });
+  const valid = await publicClient.verifyMessage({ address: m.owner, message: revokeMessage(m.owner, m.nonce), signature });
   if (!valid) throw new Error('revocation must be signed by the delegating owner');
   active = null;
   log('denied', `Owner ${m.owner} revoked the delegation: agent paused`);
