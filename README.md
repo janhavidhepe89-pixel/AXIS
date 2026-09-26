@@ -121,6 +121,7 @@ pnpm smoke:swap 0.001       # optional: one live ETH->USDC swap
 3. Click **Approve with World ID**, complete verification, and you land back on the dashboard with the executed trade and its Etherscan link.
 4. Unsuccessful path: create another large proposal and click **Approve with World ID**, then cancel. Or click **Reject**, or wait out the window. The proposal is rejected or expired, and no transaction is sent.
 5. Ask for `0.001 ETH`: it runs on its own. Ask for `0.05 ETH`: it's blocked by the hard limit.
+6. Click **Revoke delegation** and sign. Any further trade is blocked with "no active delegation".
 
 ## Team
 
@@ -129,4 +130,3 @@ pnpm smoke:swap 0.001       # optional: one live ETH->USDC swap
 ## World ID integration debrief
 
 _(to fill in after the final run: time to first success, friction, missing docs, top improvement)_
-6. Click **Revoke delegation** and sign. Any further trade is blocked with "no active delegation".
