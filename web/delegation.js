@@ -29,21 +29,31 @@ async function api(path, body) {
   return json;
 }
 
+/** Ask the wallet to use Sepolia, then report the chain it is actually on. */
+async function ensureSepolia() {
+  try {
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: SEPOLIA }] });
+  } catch (err) {
+    console.warn('wallet_switchEthereumChain failed', err);
+  }
+  return provider.request({ method: 'eth_chainId' });
+}
+
 async function connect() {
   const picked = pickProvider();
   provider = picked.provider;
   [account] = await provider.request({ method: 'eth_requestAccounts' });
-  const chainId = await provider.request({ method: 'eth_chainId' });
-  if (chainId !== SEPOLIA) {
-    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: SEPOLIA }] });
-  }
-  $('d-account').textContent = `Connected ${picked.name} ${short(account)}`;
+  const chainId = await ensureSepolia();
+  $('d-account').textContent = `Connected ${picked.name} ${short(account)} · chain ${parseInt(chainId, 16)}`;
   $('d-connect').hidden = true;
   $('d-sign').hidden = false;
 }
 
 async function signAndDelegate() {
   const { template } = await api('/api/delegation');
+  // Sign for the chain the wallet is actually on, or the extension refuses the request.
+  const chainId = parseInt(await ensureSepolia(), 16);
+  const domain = { ...template.domain, chainId };
   const mandate = {
     owner: account,
     agent: template.agent,
@@ -53,7 +63,7 @@ async function signAndDelegate() {
     nonce: template.nonce,
   };
   const typedData = {
-    domain: template.domain,
+    domain,
     types: {
       EIP712Domain: [
         { name: 'name', type: 'string' },
@@ -69,7 +79,7 @@ async function signAndDelegate() {
     method: 'eth_signTypedData_v4',
     params: [account, JSON.stringify(typedData)],
   });
-  await api('/api/delegate', { mandate, signature });
+  await api('/api/delegate', { mandate, signature, chainId });
 }
 
 async function revoke(message, owner) {
