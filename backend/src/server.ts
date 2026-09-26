@@ -81,7 +81,10 @@ app.post('/api/proposals/:id/reject', (req, res) => {
  */
 let ownerSubject: string | null = process.env.OWNER_SUBJECT || null;
 
-app.get('/api/owner', (_req, res) => res.json({ bound: !!ownerSubject }));
+// OIDC sector identifier document: the redirect URIs this client is allowed to use.
+app.get('/sector.json', (_req, res) => res.json([redirectUri]));
+
+app.get('/api/owner',(_req, res) => res.json({ bound: !!ownerSubject }));
 
 // Start a fresh World ID verification for one specific proposal.
 app.get('/auth/approve/:id', (req, res) => {
