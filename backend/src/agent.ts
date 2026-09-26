@@ -7,6 +7,7 @@ import { ETH, USDC, type Token } from './config.js';
 import { explorerTx, getBalances } from './chain.js';
 import { executeSwap, getQuote } from './uniswap.js';
 import { decide, policy } from './policy.js';
+import { record } from './history.js';
 import {
   createProposal,
   getProposal,
@@ -51,6 +52,7 @@ export async function snapshot() {
     targetEthPct: policy.targetEthPct,
     totalValueEth: formatEther(total),
   };
+  record(snap);
   return { snap, tradeableEth, usdcInEth, total, price };
 }
 
@@ -137,6 +139,7 @@ export async function execute(id: string): Promise<Proposal> {
   if (p.status !== 'pending_approval') throw new Error(`proposal is ${p.status}`);
   if (p.decision === 'needs_human' && !p.approvedBy) throw new Error('human approval required');
   p.status = 'executing';
+  p.ethPctBefore = (await snapshot()).snap.ethPct;
   const tokenIn: Token = tokens[p.tokenIn];
   const tokenOut: Token = tokens[p.tokenOut];
   try {
@@ -146,6 +149,10 @@ export async function execute(id: string): Promise<Proposal> {
     p.txs.push({ label: `Swap via ${q.quote.routeString?.slice(0, 4) ?? q.routing}`, hash: res.swapTx });
     if (res.status !== 'success') throw new Error(`swap reverted: ${explorerTx(res.swapTx)}`);
     p.status = 'executed';
+    p.executedAt = Date.now();
+    const after = (await snapshot()).snap;
+    record(after, true);
+    p.ethPctAfter = after.ethPct;
     log('trade', `Executed ${describe(p)}: ${explorerTx(res.swapTx)}`, p.id);
   } catch (err) {
     p.status = 'failed';

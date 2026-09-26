@@ -25,6 +25,9 @@ export interface Proposal {
   approvedBy?: string; // World ID pairwise subject
   approvedAt?: number;
   txs: { label: string; hash: string }[];
+  executedAt?: number;
+  ethPctBefore?: number;
+  ethPctAfter?: number;
   error?: string;
 }
 
