@@ -80,8 +80,8 @@ Feedback: [FEEDBACK.md](FEEDBACK.md)
 
 - Start a verification for one proposal (PKCE S256, `state`, `nonce`, `prompt=login`, `max_age`): [`backend/src/worldid.ts:35`](backend/src/worldid.ts#L35)
 - Server-side validation (code exchange with the client secret, ID token signature against JWKS, `iss`, `aud`, `nonce`, `auth_time` freshness): [`backend/src/worldid.ts:63`](backend/src/worldid.ts#L63)
-- Approval routes, owner binding by pairwise `sub`, rejecting on any failure: [`backend/src/server.ts:90`](backend/src/server.ts#L90)
-- Execution refuses `needs_human` proposals without a validated approval: [`backend/src/agent.ts:138`](backend/src/agent.ts#L138)
+- Approval routes, owner binding by pairwise `sub`, rejecting on any failure: [`backend/src/server.ts:134`](backend/src/server.ts#L134)
+- Execution refuses `needs_human` proposals without a validated approval: [`backend/src/agent.ts:145`](backend/src/agent.ts#L145)
 
 **Unsuccessful paths (the trade never executes):** the user cancels or World ID returns an error; the 10-minute approval window expires; the authentication is older than 120s; the nonce or state doesn't match or is replayed; the verified human isn't the treasury owner; the user clicks Reject.
 
